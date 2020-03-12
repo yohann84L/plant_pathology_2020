@@ -10,22 +10,9 @@ import cv2
 import numpy as np
 import pandas as pd
 import torch
-import torchvision.transforms
 from torch.utils.data.dataset import Dataset
 
-
-class Classes:
-    label_str_to_id = {
-        "background": 0,
-        "small_vrac": 1,
-        "big_vrac": 2
-    }
-
-    id_to_label_str = {
-        0: "background",
-        1: "small_vrac",
-        2: "big_vrac"
-    }
+classes = ("healthy", "multiple_diseases", "rust", "scab")
 
 
 class PlantPathologyDataset(Dataset):
@@ -37,7 +24,7 @@ class PlantPathologyDataset(Dataset):
         transforms: transforms
     """
 
-    def __init__(self, annot_fp: str, img_root: str, transforms: torchvision.transforms.Compose = None):
+    def __init__(self, annot_fp: str, img_root: str, transforms=None):
         self.annots = pd.read_csv(Path(annot_fp).as_posix())
         self.transforms = transforms
         self.img_root = Path(img_root)
@@ -46,16 +33,18 @@ class PlantPathologyDataset(Dataset):
         obj = self.annots.iloc[idx]
 
         # Get image
-        img_path = Path(self.img_root)/Path(obj["image_id"]).with_suffix(".jpg")
+        img_path = Path(self.img_root) / Path(obj["image_id"]).with_suffix(".jpg")
 
         # Get image and transforms it if necessary for augmentation
         img = cv2.imread(img_path.as_posix())
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         if self.transforms:
-            self.transforms(img)
+            data = {"image": img}
+            res = self.transforms(**data)
+            img = res["image"]
 
         # Convert each numpy array into tensor
-        labels = obj.values[1:]
+        labels = torch.tensor(obj.values[1:].tolist(), dtype=torch.float32)
 
         return img, labels
 
