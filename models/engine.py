@@ -9,7 +9,7 @@ import torch
 from sklearn.metrics import roc_curve, auc
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-
+import numpy as np
 from utils.metric_logger import MetricLogger, SmoothedValue
 
 
@@ -42,24 +42,27 @@ def train_one_epoch(model, optimizer: torch.optim, data_loader: DataLoader, crit
         outputs = model(images)
 
         losses = []
-        print(outputs)
-        print(labels)
-        for i in range(4):
-            losses.append(criterion(outputs[i], labels[:, i]))
-        loss = sum(losses)
+        # print(outputs[0])
+        # print(labels[0])
+        # print(outputs.dtype, labels.dtype)
+        loss = criterion(outputs, labels)
+
+        # for i in range(4):
+        #     losses.append(criterion(outputs[i], outputs[i]))
+        # loss = sum(losses)
 
         # Process backward
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-        metrics = compute_roc_auc(outputs, labels)
-        metric_logger.update(loss=loss, **metrics)
+        #metrics = compute_roc_auc(outputs, labels)
+        metric_logger.update(loss=loss)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
 
 
 @torch.no_grad()
-def evaluate(model, data_loader: DataLoader, device: torch.device, criterion: torch.nn.modules.loss,
+def evaluate(model, criterion: torch.nn.modules.loss, data_loader: DataLoader, device: torch.device,
              print_freq: int, writer: SummaryWriter = None, epoch: int = None):
     """
     Method to evaluate FasterRCNN_SaladFruit model on a test set.
@@ -96,13 +99,15 @@ def evaluate(model, data_loader: DataLoader, device: torch.device, criterion: to
         metric_logger.update(loss=loss, **metrics)
 
 
-def compute_roc_auc(output, target, n_classes=4) -> dict:
-    fpr = dict()
-    tpr = dict()
-    roc_auc = dict()
+def compute_roc_auc(output: torch.tensor, target: torch.tensor, n_classes=4) -> dict:
+    output = torch.nn.functional.softmax(output)
+    output = output.cpu().detach().numpy()
+    target = target.cpu().detach().numpy().astype(np.uint8)
+
+    fpr, tpr, roc_auc = {}, {}, {}
     for i in range(n_classes):
-        fpr[f"classe {i}"], tpr[f"classe {i}"], _ = roc_curve(output[:, i], target[:, i])
+        fpr[f"classe {i}"], tpr[f"classe {i}"], _ = roc_curve(target[:, i], output[:, i])
         roc_auc[f"classe {i}"] = auc(fpr[f"classe {i}"], tpr[f"classe {i}"])
-    mean_auc = mean(roc_auc.values)
+    mean_auc = mean(roc_auc.values())
     roc_auc["mean_auc"] = mean_auc
     return roc_auc
