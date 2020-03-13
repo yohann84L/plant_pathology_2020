@@ -71,7 +71,7 @@ class SmoothedValue(object):
 
 
 class MetricLogger(object):
-    def __init__(self, writer, delimiter="\t"):
+    def __init__(self, writer=None, delimiter="\t"):
         self.meters = defaultdict(SmoothedValue)
         self.delimiter = delimiter
         self.writer = writer
@@ -150,14 +150,16 @@ class MetricLogger(object):
                         meters=str(self),
                         time=str(iter_time), data=str(data_time),
                         memory=torch.cuda.max_memory_allocated() / MB))
-                    self.update_summary_writer(int(i) + epoch * len(iterable))
+                    if self.writer is not None:
+                        self.update_summary_writer(int(i) + epoch * len(iterable))
 
                 else:
                     print(log_msg.format(
                         i, len(iterable), eta=eta_string,
                         meters=str(self),
                         time=str(iter_time), data=str(data_time)))
-                    self.update_summary_writer(int(i) + epoch * len(iterable))
+                    if self.writer is not None:
+                        self.update_summary_writer(int(i) + epoch * len(iterable))
             i += 1
             end = time.time()
         total_time = time.time() - start_time
@@ -167,4 +169,4 @@ class MetricLogger(object):
 
     def update_summary_writer(self, n_iter):
         for name, meter in self.meters.items():
-            self.writer.add_scalar("Losses/Loss/" + name, meter.value, n_iter)
+            self.writer.add_scalar("metrics/" + name, meter.value, n_iter)

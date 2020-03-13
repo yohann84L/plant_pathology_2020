@@ -187,6 +187,7 @@ checkpoints/
 
 # Tensorboard runs
 runs/
+logs/
 
 # Images
 images/

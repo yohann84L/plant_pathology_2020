@@ -5,16 +5,17 @@
 
 from statistics import mean
 
+import numpy as np
 import torch
 from sklearn.metrics import roc_curve, auc
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-import numpy as np
-from utils.metric_logger import MetricLogger, SmoothedValue
 
+from utils.metric_logger import MetricLogger, SmoothedValue
+from models.metrics import ComputeMetrics
 
 def train_one_epoch(model, optimizer: torch.optim, data_loader: DataLoader, criterion: torch.nn.modules.loss,
-                    device: torch.device, epoch: int, print_freq: int, writer: SummaryWriter):
+                    device: torch.device, epoch: int, print_freq: int):
     """
     Method to train Plant model one time
     Args:
@@ -30,9 +31,13 @@ def train_one_epoch(model, optimizer: torch.optim, data_loader: DataLoader, crit
     # Set model to train mode
     model.train()
     # Define metric logger parameters
-    metric_logger = MetricLogger(delimiter="  ", writer=writer)
+    metric_logger = MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', SmoothedValue(window_size=1, fmt='{value:.6f}'))
     header = 'Epoch: [{}]'.format(epoch)
+
+    metric = ComputeMetrics(n_classes=4)
+
+    running_loss, epoch_loss = 0, 0
 
     # Iterate over dataloader to train model
     for images, labels in metric_logger.log_every(data_loader, print_freq, epoch, header):
@@ -41,31 +46,33 @@ def train_one_epoch(model, optimizer: torch.optim, data_loader: DataLoader, crit
 
         outputs = model(images)
 
-        losses = []
-        # print(outputs[0])
-        # print(labels[0])
-        # print(outputs.dtype, labels.dtype)
+        # Compute loss
         loss = criterion(outputs, labels)
-
-        # for i in range(4):
-        #     losses.append(criterion(outputs[i], outputs[i]))
-        # loss = sum(losses)
+        running_loss += loss.item() * images.size(0)
 
         # Process backward
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-        #metrics = compute_roc_auc(outputs, labels)
+        # Compute ROC AUC
+        metric.update(outputs, labels)
+
+        # metrics = compute_roc_auc(outputs, labels)
         metric_logger.update(loss=loss)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
 
+    epoch_metric = metric.get_auc_roc(train=True)
+    epoch_metric["loss"] = running_loss / len(data_loader.dataset)
+
+    print(epoch_metric)
+    return epoch_metric
+
 
 @torch.no_grad()
-def evaluate(model, criterion: torch.nn.modules.loss, data_loader: DataLoader, device: torch.device,
-             print_freq: int, writer: SummaryWriter = None, epoch: int = None):
+def evaluate(model, criterion: torch.nn.modules.loss, data_loader: DataLoader, device: torch.device):
     """
-    Method to evaluate FasterRCNN_SaladFruit model on a test set.
+    Method to evaluate Plant model on a test set.
     Args:
         model (FasterRCNN): model to evaluate
         data_loader (torch.utils.data.DataLoader): data loader to test model on
@@ -75,39 +82,27 @@ def evaluate(model, criterion: torch.nn.modules.loss, data_loader: DataLoader, d
         epoch (int = None): state epoch of the current training if there is one
     """
     model.eval()
-    # Define metric logger parameters
-    metric_logger = MetricLogger(delimiter="  ", writer=writer)
-    metric_logger.add_meter('lr', SmoothedValue(window_size=1, fmt='{value:.6f}'))
-    header = 'Eval: [{}]'.format(epoch)
 
-    model_time_list = []
-    total_loss = 0
+    metric = ComputeMetrics(n_classes=4)
 
-    for images, labels in metric_logger.log_every(data_loader, print_freq, epoch, header):
-        images = list(image.to(device) for image in images)
-        labels = list(label.to(device) for label in labels)
+    running_loss, epoch_loss = 0, 0
 
-        outputs = model(images, labels)
+    # Iterate over dataloader to train model
+    for images, labels in data_loader:
+        images = images.to(device)
+        labels = labels.to(device)
 
-        losses = []
-        for i in range(4):
-            losses.append(criterion(outputs[i], labels[:, i]))
-        loss = sum(losses)
-        total_loss += loss
+        outputs = model(images)
 
-        metrics = compute_roc_auc(outputs, labels)
-        metric_logger.update(loss=loss, **metrics)
+        # Compute loss
+        loss = criterion(outputs, labels)
+        running_loss += loss.item() * images.size(0)
 
+        # Compute ROC AUC
+        metric.update(outputs, labels)
 
-def compute_roc_auc(output: torch.tensor, target: torch.tensor, n_classes=4) -> dict:
-    output = torch.nn.functional.softmax(output)
-    output = output.cpu().detach().numpy()
-    target = target.cpu().detach().numpy().astype(np.uint8)
+    epoch_metric = metric.get_auc_roc(train=False)
+    epoch_metric["loss"] = running_loss / len(data_loader.dataset)
 
-    fpr, tpr, roc_auc = {}, {}, {}
-    for i in range(n_classes):
-        fpr[f"classe {i}"], tpr[f"classe {i}"], _ = roc_curve(target[:, i], output[:, i])
-        roc_auc[f"classe {i}"] = auc(fpr[f"classe {i}"], tpr[f"classe {i}"])
-    mean_auc = mean(roc_auc.values())
-    roc_auc["mean_auc"] = mean_auc
-    return roc_auc
+    print(epoch_metric)
+    return epoch_metric

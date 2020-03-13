@@ -2,17 +2,17 @@ import argparse
 from pathlib import Path
 from typing import Union
 
-import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from datasets import PlantPathologyDataset, DatasetTransforms
 from models import PlantModel
-from models.engine import train_one_epoch
+from models.engine import train_one_epoch, evaluate
 from optimizer import RAdam
-from utils.utils import str2bool, get_device
-from tqdm import tqdm
+from utils.metric_logger import *
+from utils.utils import str2bool, get_device, save_checkpoint
+
 
 
 def parse_args():
@@ -74,7 +74,7 @@ def train(model, optimizer, criterion, lr_scheduler, data_loader: DataLoader, da
     if epoch_save_ckpt == -1:
         epoch_save_ckpt = [num_epochs - 1]
     if not dir:
-        dir = "models"
+        dir = "checkpoints"
     dir = Path(dir)
     dir.mkdir(parents=True, exist_ok=True)
     # choose device
@@ -82,22 +82,37 @@ def train(model, optimizer, criterion, lr_scheduler, data_loader: DataLoader, da
     print(f"Using device {device.type}")
     # define dataset
     model.to(device)
-    writer = SummaryWriter()
+    writer = SummaryWriter("logs")
+    metric_logger_train = MetricLogger(delimiter="  ")
+    # writer_test = SummaryWriter("runs/test")
+    # metric_logger_test = MetricLogger(delimiter="  ", writer=writer_test)
 
-    for epoch in range(num_epochs):
+    for epoch in metric_logger_train.log_every(range(num_epochs), print_freq=1, epoch=0, header="Training"):
         # train for one epoch, printing every 50 iterations
-        train_one_epoch(model, optimizer, data_loader, criterion, device, epoch, print_freq=10, writer=writer)
+        train_metric = train_one_epoch(model, optimizer, data_loader, criterion, device, epoch, print_freq=40)
+        #metric_logger_train.update(**train_metric)
+
         # update the learning rate
         lr_scheduler.step()
         # evaluate on the test dataset
-        # evaluate(model, criterion, data_loader_test, device=device, writer=writer, print_freq=10, epoch=epoch)
+        test_metric = evaluate(model, criterion, data_loader_test, device=device)
+       #metric_logger_test.update(**test_metric)
+        for key in train_metric.keys():
+            writer.add_scalars(
+                "metrics/{}".format(key), {
+                    "{}_train".format(key, key): train_metric[key],
+                    "{}_test".format(key, key): test_metric[key],
+                }, global_step=epoch
+            )
         # save checkpoint
-
-        # if epoch in epoch_save_ckpt:
-        #     save_checkpoint(dir.as_posix(), epoch)
+        if epoch in epoch_save_ckpt:
+            save_checkpoint(model, optimizer, dir.as_posix(), epoch)
     writer.close()
+    #writer_train.close()
+    #writer_test.close()
 
     print("That's it!")
+
 
 if __name__ == '__main__':
     args = parse_args()
@@ -135,7 +150,7 @@ if __name__ == '__main__':
     lr_scheduler = torch.optim.lr_scheduler.StepLR(
         optimizer=optimizer,
         step_size=3,
-        gamma=0.1
+        gamma=0.5
     )
 
     criterion = torch.nn.BCEWithLogitsLoss()

@@ -1,6 +1,6 @@
 import torch
 import torchvision
-
+from efficientnet_pytorch import EfficientNet
 
 class PlantModel(torch.nn.Module):
     def __init__(self, backbone_name: str, pretrained: bool = True, finetune: bool = True, num_classes: int = 4):
@@ -55,6 +55,13 @@ class PlantModel(torch.nn.Module):
                 self.set_grad_for_finetunning(backbone, 7)
             num_ftrs = backbone.fc.in_features
             backbone.fc = torch.nn.Linear(num_ftrs, num_classes)
+        # EfficientNet
+        elif base_model_name =="efficientnetb2":
+            backbone = EfficientNet.from_pretrained("efficientnet-b2")
+            if finetune:
+                self.set_grad_for_finetunning(backbone, 2)
+            num_ftrs = backbone._fc.in_features
+            backbone._fc = torch.nn.Linear(num_ftrs, num_classes)
         else:
             print("Backbone model should be one of the following list: ")
             for name in base_model_accepted:

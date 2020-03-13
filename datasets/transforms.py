@@ -29,8 +29,8 @@ class DatasetTransforms:
     def add_transforms(self):
         if self.train:
             self.transforms += [
-                A.Resize(256, 256),
-                A.RandomCrop(224, 244),
+                A.Resize(650, 650),
+                A.RandomCrop(600, 600),
                 A.HorizontalFlip(p=0.5),
                 A.VerticalFlip(p=0.5),
                 A.Rotate(p=0.5, border_mode=BORDER_REFLECT, value=0),
@@ -50,7 +50,7 @@ class DatasetTransforms:
             ]
         else:
             self.transforms += [
-                A.Resize(224, 244),
+                A.Resize(600, 600),
             ]
 
     def add_normalization(self):
