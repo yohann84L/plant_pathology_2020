@@ -55,11 +55,25 @@ class PlantModel(torch.nn.Module):
                 self.set_grad_for_finetunning(backbone, 7)
             num_ftrs = backbone.fc.in_features
             backbone.fc = torch.nn.Linear(num_ftrs, num_classes)
-        # EfficientNet
+        # EfficientNet b2
         elif base_model_name =="efficientnetb2":
             backbone = EfficientNet.from_pretrained("efficientnet-b2")
             if finetune:
                 self.set_grad_for_finetunning(backbone, 2)
+            num_ftrs = backbone._fc.in_features
+            backbone._fc = torch.nn.Linear(num_ftrs, num_classes)
+        # EfficientNet b5
+        elif base_model_name =="efficientnetb4":
+            backbone = EfficientNet.from_pretrained("efficientnet-b4")
+            if finetune:
+                self.set_grad_for_finetunning(backbone, 3)
+            num_ftrs = backbone._fc.in_features
+            backbone._fc = torch.nn.Linear(num_ftrs, num_classes)
+        # EfficientNet b5
+        elif base_model_name =="efficientnetb5":
+            backbone = EfficientNet.from_pretrained("efficientnet-b5")
+            if finetune:
+                self.set_grad_for_finetunning(backbone, 3)
             num_ftrs = backbone._fc.in_features
             backbone._fc = torch.nn.Linear(num_ftrs, num_classes)
         else:

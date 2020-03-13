@@ -2,6 +2,7 @@ import argparse
 from pathlib import Path
 from typing import Union
 
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -12,7 +13,6 @@ from models.engine import train_one_epoch, evaluate
 from optimizer import RAdam
 from utils.metric_logger import *
 from utils.utils import str2bool, get_device, save_checkpoint
-
 
 
 def parse_args():
@@ -90,13 +90,13 @@ def train(model, optimizer, criterion, lr_scheduler, data_loader: DataLoader, da
     for epoch in metric_logger_train.log_every(range(num_epochs), print_freq=1, epoch=0, header="Training"):
         # train for one epoch, printing every 50 iterations
         train_metric = train_one_epoch(model, optimizer, data_loader, criterion, device, epoch, print_freq=40)
-        #metric_logger_train.update(**train_metric)
+        # metric_logger_train.update(**train_metric)
 
         # update the learning rate
         lr_scheduler.step()
         # evaluate on the test dataset
         test_metric = evaluate(model, criterion, data_loader_test, device=device)
-       #metric_logger_test.update(**test_metric)
+        # metric_logger_test.update(**test_metric)
         for key in train_metric.keys():
             writer.add_scalars(
                 "metrics/{}".format(key), {
@@ -108,8 +108,8 @@ def train(model, optimizer, criterion, lr_scheduler, data_loader: DataLoader, da
         if epoch in epoch_save_ckpt:
             save_checkpoint(model, optimizer, dir.as_posix(), epoch)
     writer.close()
-    #writer_train.close()
-    #writer_test.close()
+    # writer_train.close()
+    # writer_test.close()
 
     print("That's it!")
 
@@ -153,7 +153,13 @@ if __name__ == '__main__':
         gamma=0.5
     )
 
-    criterion = torch.nn.BCEWithLogitsLoss()
+    df_annots = dataset.dataset.annots
+    count = df_annots[["healthy", "multiple_diseases", "rust", "scab"]].sum().values
+    count = torch.from_numpy(count.astype(np.float32))
+    weight_classes = torch.tensor([1]) - (count / len(dataset))
+    print(weight_classes)
+
+    criterion = torch.nn.BCEWithLogitsLoss(weight=weight_classes)
 
     print("Start training")
     train(model, optimizer, criterion, lr_scheduler, data_loader, data_loader_test, num_epochs=args.epochs,
