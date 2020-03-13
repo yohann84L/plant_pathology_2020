@@ -157,6 +157,7 @@ if __name__ == '__main__':
     count = df_annots[["healthy", "multiple_diseases", "rust", "scab"]].sum().values
     count = torch.from_numpy(count.astype(np.float32))
     weight_classes = torch.tensor([1]) - (count / len(dataset))
+    weight_classes = weight_classes.to(get_device(args.use_cuda))
     print(weight_classes)
 
     criterion = torch.nn.BCEWithLogitsLoss(weight=weight_classes)
