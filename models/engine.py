@@ -14,6 +14,8 @@ from torch.utils.tensorboard import SummaryWriter
 from utils.metric_logger import MetricLogger, SmoothedValue
 from models.metrics import ComputeMetrics
 
+from models.mixup import MixupData, MixupCriterion
+
 def train_one_epoch(model, optimizer: torch.optim, data_loader: DataLoader, criterion: torch.nn.modules.loss,
                     device: torch.device, epoch: int, print_freq: int):
     """
@@ -39,15 +41,22 @@ def train_one_epoch(model, optimizer: torch.optim, data_loader: DataLoader, crit
 
     running_loss, epoch_loss = 0, 0
 
+    mixup_data = MixupData()
+    mixup_criterion = MixupCriterion()
+
     # Iterate over dataloader to train model
     for images, labels in metric_logger.log_every(data_loader, print_freq, epoch, header):
         images = images.to(device)
         labels = labels.to(device)
 
-        outputs = model(images)
+        inputs, targets_a, targets_b, lam = mixup_data(images, labels)
+        inputs, targets_a, targets_b = map(torch.tensor, (inputs, targets_a, targets_b))
+
+        outputs = model(inputs)
 
         # Compute loss
-        loss = criterion(outputs, labels)
+        #loss = criterion(outputs, labels)
+        loss = mixup_criterion(criterion, outputs, targets_a, targets_b, lam)
         running_loss += loss.item() * images.size(0)
 
         # Process backward

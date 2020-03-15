@@ -14,6 +14,8 @@ from optimizer import RAdam
 from utils.metric_logger import *
 from utils.utils import str2bool, get_device, save_checkpoint
 
+from models.mixup import MixupCriterion, MixupData
+
 
 def parse_args():
     """
@@ -153,14 +155,14 @@ if __name__ == '__main__':
         gamma=0.5
     )
 
-    df_annots = dataset.dataset.annots
-    count = df_annots[["healthy", "multiple_diseases", "rust", "scab"]].sum().values
-    count = torch.from_numpy(count.astype(np.float32))
-    weight_classes = torch.tensor([1]) - (count / len(dataset))
-    weight_classes = weight_classes.to(get_device(args.use_cuda))
-    print(weight_classes)
+    # df_annots = dataset.dataset.annots
+    # count = df_annots[["healthy", "multiple_diseases", "rust", "scab"]].sum().values
+    # count = torch.from_numpy(count.astype(np.float32))
+    # weight_classes = torch.tensor([1]) - (count / len(dataset))
+    # weight_classes = weight_classes.to(get_device(args.use_cuda))
+    # print(weight_classes)
 
-    criterion = torch.nn.BCEWithLogitsLoss(weight=weight_classes)
+    criterion = torch.nn.BCEWithLogitsLoss()
 
     print("Start training")
     train(model, optimizer, criterion, lr_scheduler, data_loader, data_loader_test, num_epochs=args.epochs,
