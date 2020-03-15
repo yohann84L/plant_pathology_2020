@@ -14,7 +14,7 @@ from optimizer import RAdam
 from utils.metric_logger import *
 from utils.utils import str2bool, get_device, save_checkpoint
 
-from models.mixup import MixupCriterion, MixupData
+from losses import FocalLoss
 
 
 def parse_args():
@@ -162,7 +162,8 @@ if __name__ == '__main__':
     # weight_classes = weight_classes.to(get_device(args.use_cuda))
     # print(weight_classes)
 
-    criterion = torch.nn.BCEWithLogitsLoss()
+    criterion = FocalLoss()
+    #criterion = torch.nn.BCEWithLogitsLoss()
 
     print("Start training")
     train(model, optimizer, criterion, lr_scheduler, data_loader, data_loader_test, num_epochs=args.epochs,
