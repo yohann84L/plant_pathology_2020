@@ -1,74 +1,115 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# --------------------------------------------------------
-# Licensed under The MIT License [see LICENSE for details]
-# Written by Chao CHEN (chaochancs@gmail.com)
-# Created On: 2017-08-11
-# --------------------------------------------------------
+from typing import Optional
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.autograd import Variable
+
+
+
+# based on:
+# https://github.com/zhezh/focalloss/blob/master/focalloss.py
+
+def focal_loss(
+        input: torch.Tensor,
+        target: torch.Tensor,
+        alpha: float,
+        gamma: float = 2.0,
+        reduction: str = 'none',
+        eps: float = 1e-8) -> torch.Tensor:
+    r"""Function that computes Focal loss.
+
+    See :class:`~kornia.losses.FocalLoss` for details.
+    """
+    if not torch.is_tensor(input):
+        raise TypeError("Input type is not a torch.Tensor. Got {}"
+                        .format(type(input)))
+
+    if not len(input.shape) >= 2:
+        raise ValueError("Invalid input shape, we expect BxCx*. Got: {}"
+                         .format(input.shape))
+
+    if input.size(0) != target.size(0):
+        raise ValueError('Expected input batch_size ({}) to match target batch_size ({}).'
+                         .format(input.size(0), target.size(0)))
+
+    n = input.size(0)
+    out_size = (n,) + input.size()[2:]
+
+    if not input.device == target.device:
+        raise ValueError(
+            "input and target must be in the same device. Got: {}" .format(
+                input.device, target.device))
+
+    # compute softmax over the classes axis
+    input_soft: torch.Tensor = F.softmax(input, dim=1) + eps
+
+    # compute the actual focal loss
+    weight = torch.pow(-input_soft + 1., gamma)
+
+    focal = -alpha * weight * torch.log(input_soft)
+    loss_tmp = torch.sum(target * focal, dim=1)
+
+    if reduction == 'none':
+        loss = loss_tmp
+    elif reduction == 'mean':
+        loss = torch.mean(loss_tmp)
+    elif reduction == 'sum':
+        loss = torch.sum(loss_tmp)
+    else:
+        raise NotImplementedError("Invalid reduction mode: {}"
+                                  .format(reduction))
+    return loss
 
 
 class FocalLoss(nn.Module):
-    r"""
-        This criterion is a implemenation of Focal Loss, which is proposed in 
-        Focal Loss for Dense Object Detection.
+    r"""Criterion that computes Focal loss.
 
-            Loss(x, class) = - \alpha (1-softmax(x)[class])^gamma \log(softmax(x)[class])
+    According to [1], the Focal loss is computed as follows:
 
-        The losses are averaged across observations for each minibatch.
-        Args:
-            alpha(1D Tensor, Variable) : the scalar factor for this criterion
-            gamma(float, double) : gamma > 0; reduces the relative loss for well-classiﬁed examples (p > .5), 
-                                   putting more focus on hard, misclassiﬁed examples
-            size_average(bool): size_average(bool): By default, the losses are averaged over observations for each minibatch.
-                                However, if the field size_average is set to False, the losses are
-                                instead summed for each minibatch.
+    .. math::
+
+        \text{FL}(p_t) = -\alpha_t (1 - p_t)^{\gamma} \, \text{log}(p_t)
+
+    where:
+       - :math:`p_t` is the model's estimated probability for each class.
+
+
+    Arguments:
+        alpha (float): Weighting factor :math:`\alpha \in [0, 1]`.
+        gamma (float): Focusing parameter :math:`\gamma >= 0`.
+        reduction (str, optional): Specifies the reduction to apply to the
+         output: ‘none’ | ‘mean’ | ‘sum’. ‘none’: no reduction will be applied,
+         ‘mean’: the sum of the output will be divided by the number of elements
+         in the output, ‘sum’: the output will be summed. Default: ‘none’.
+
+    Shape:
+        - Input: :math:`(N, C, *)` where C = number of classes.
+        - Target: :math:`(N, *)` where each value is
+          :math:`0 ≤ targets[i] ≤ C−1`.
+
+    Examples:
+        >>> N = 5  # num_classes
+        >>> kwargs = {"alpha": 0.5, "gamma": 2.0, "reduction": 'mean'}
+        >>> loss = kornia.losses.FocalLoss(**kwargs)
+        >>> input = torch.randn(1, N, 3, 5, requires_grad=True)
+        >>> target = torch.empty(1, 3, 5, dtype=torch.long).random_(N)
+        >>> output = loss(input, target)
+        >>> output.backward()
+
+    References:
+        [1] https://arxiv.org/abs/1708.02002
     """
 
-    def __init__(self, class_num: int = 4, alpha=None, gamma=2, size_average=True):
+    def __init__(self, alpha: float, gamma: float = 2.0,
+                 reduction: str = 'none') -> None:
         super(FocalLoss, self).__init__()
-        if alpha is None:
-            self.alpha = Variable(torch.ones(class_num, 1))
-        else:
-            if isinstance(alpha, Variable):
-                self.alpha = alpha
-            else:
-                self.alpha = Variable(alpha)
-        self.gamma = gamma
-        self.class_num = class_num
-        self.size_average = size_average
+        self.alpha: float = alpha
+        self.gamma: float = gamma
+        self.reduction: str = reduction
+        self.eps: float = 1e-6
 
-    def forward(self, inputs, targets):
-        N = inputs.size(0)
-        print(N)
-        C = inputs.size(1)
-        P = F.softmax(inputs)
-
-        class_mask = inputs.long().data.new(N, C).fill_(0)
-        class_mask = Variable(class_mask)
-        ids = targets.long().view(-1, 1)
-        class_mask.scatter_(1, ids.data, 1.)
-        # print(class_mask)
-
-        if inputs.is_cuda and not self.alpha.is_cuda:
-            self.alpha = self.alpha.cuda()
-        alpha = self.alpha[ids.data.view(-1)]
-
-        probs = (P * class_mask).sum(1).view(-1, 1)
-
-        log_p = probs.log()
-        # print('probs size= {}'.format(probs.size()))
-        # print(probs)
-
-        batch_loss = -alpha * (torch.pow((1 - probs), self.gamma)) * log_p
-        # print('-----bacth_loss------')
-        # print(batch_loss)
-
-        if self.size_average:
-            loss = batch_loss.mean()
-        else:
-            loss = batch_loss.sum()
-        return loss
+    def forward(  # type: ignore
+            self,
+            input: torch.Tensor,
+            target: torch.Tensor) -> torch.Tensor:
+        return focal_loss(input, target, self.alpha, self.gamma, self.reduction, self.eps)
