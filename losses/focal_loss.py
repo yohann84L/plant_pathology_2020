@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
+from utils import get_device
 
 
 def one_hot(index, classes):
@@ -21,12 +22,15 @@ def one_hot(index, classes):
 
 class FocalLoss(nn.Module):
 
-    def __init__(self, gamma=0, eps=1e-7):
+    def __init__(self, gamma=0, eps=1e-7, use_cuda=True):
         super(FocalLoss, self).__init__()
         self.gamma = gamma
         self.eps = eps
+        self.device = get_device(use_cuda)
 
     def forward(self, input, target):
+        input = input.to(self.device)
+        target = target.to(self.device)
         y = one_hot(target, input.size(-1))
         logit = F.softmax(input, dim=-1)
         logit = logit.clamp(self.eps, 1. - self.eps)
