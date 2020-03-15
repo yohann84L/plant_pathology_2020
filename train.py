@@ -14,7 +14,7 @@ from optimizer import RAdam
 from utils.metric_logger import *
 from utils.utils import str2bool, get_device, save_checkpoint
 
-from losses import FocalLoss
+from kornia.losses import FocalLoss
 
 
 def parse_args():
@@ -162,7 +162,7 @@ if __name__ == '__main__':
     # weight_classes = weight_classes.to(get_device(args.use_cuda))
     # print(weight_classes)
 
-    criterion = FocalLoss()
+    criterion = FocalLoss(alpha=1.0)
     #criterion = torch.nn.BCEWithLogitsLoss()
 
     print("Start training")
