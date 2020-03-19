@@ -14,7 +14,7 @@ from optimizer import RAdam
 from utils.metric_logger import *
 from utils.utils import str2bool, get_device, save_checkpoint
 
-from kornia.losses import FocalLoss
+from losses.focal_loss import FocalLoss
 
 
 def parse_args():
@@ -53,6 +53,9 @@ def parse_args():
                         default=-1)
     parser.add_argument("--checkpoints_dir", dest="checkpoints_dir",
                         help="save checkpoints directory", type=str)
+    parser.add_argument("--img_size", dest="img_size",
+                        help="resize img to the given int", type=int,
+                        nargs=2, default=-1)
     parser.add_argument("--batch_size", dest="batch_size",
                         help="batch size", type=int,
                         default=8)
@@ -119,9 +122,9 @@ def train(model, optimizer, criterion, lr_scheduler, data_loader: DataLoader, da
 if __name__ == '__main__':
     args = parse_args()
     dataset = PlantPathologyDataset(annot_fp=args.annot_train, img_root=args.img_root,
-                                    transforms=DatasetTransforms(train=True))
+                                    transforms=DatasetTransforms(train=True, img_size=args.img_size))
     dataset_test = PlantPathologyDataset(annot_fp=args.annot_train, img_root=args.img_root,
-                                         transforms=DatasetTransforms(train=False))
+                                         transforms=DatasetTransforms(train=False, img_size=args.img_size))
 
     model = PlantModel(
         backbone_name=args.backbone,
@@ -132,7 +135,7 @@ if __name__ == '__main__':
     # split the dataset in train and test set
     indices = torch.randperm(len(dataset)).tolist()
     size = int(len(indices) * 0.15)
-    dataset = torch.utils.data.Subset(dataset, indices[:-size])
+    #dataset = torch.utils.data.Subset(dataset, indices[:-size])
     dataset_test = torch.utils.data.Subset(dataset_test, indices[-size:])
 
     # define training and validation data loaders
@@ -162,8 +165,8 @@ if __name__ == '__main__':
     # weight_classes = weight_classes.to(get_device(args.use_cuda))
     # print(weight_classes)
 
-    criterion = FocalLoss(alpha=1.0)
-    #criterion = torch.nn.BCEWithLogitsLoss()
+    #criterion = FocalLoss(alpha=1.0, reduction="mean")
+    criterion = torch.nn.BCEWithLogitsLoss()
 
     print("Start training")
     train(model, optimizer, criterion, lr_scheduler, data_loader, data_loader_test, num_epochs=args.epochs,

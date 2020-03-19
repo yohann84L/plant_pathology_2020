@@ -12,9 +12,10 @@ class DatasetTransforms:
     def __init__(self, train=True, img_size=None):
         self.train = train
         self.transforms = []
-        if img_size is not None:
+        if img_size is None or img_size == -1:
             img_size = (224, 224)
         self.img_size = img_size
+        print(self.img_size)
 
         # Add base tranform
         self.add_transforms()
@@ -29,8 +30,8 @@ class DatasetTransforms:
     def add_transforms(self):
         if self.train:
             self.transforms += [
-                A.Resize(650, 650),
-                A.RandomCrop(600, 600),
+                A.Resize(int(self.img_size[0] * 1.1), int(self.img_size[1] * 1.1)),
+                A.RandomCrop(self.img_size[0], self.img_size[1]),
                 A.HorizontalFlip(p=0.5),
                 A.VerticalFlip(p=0.5),
                 A.Rotate(p=0.5, border_mode=BORDER_REFLECT, value=0),
@@ -50,7 +51,7 @@ class DatasetTransforms:
             ]
         else:
             self.transforms += [
-                A.Resize(600, 600),
+                A.Resize(self.img_size[0], self.img_size[1]),
             ]
 
     def add_normalization(self):

@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from kornia.utils import one_hot
 
 
 # based on:
@@ -31,9 +32,6 @@ def focal_loss(
     if input.size(0) != target.size(0):
         raise ValueError('Expected input batch_size ({}) to match target batch_size ({}).'
                          .format(input.size(0), target.size(0)))
-
-    n = input.size(0)
-    out_size = (n,) + input.size()[2:]
 
     if not input.device == target.device:
         raise ValueError(

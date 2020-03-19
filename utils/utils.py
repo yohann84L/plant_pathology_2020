@@ -58,6 +58,35 @@ def load_for_inference(filename: str, cuda: bool = True) -> PlantModel:
         print("=> no checkpoint found at '{}'".format(filename))
 
 
+def load_for_training(filename: str, cuda: bool = True) -> PlantModel:
+    """
+    Load a model checkpoint to make inference.
+    Args:
+        filename (str): filename/path of the checkpoint.pth
+        cuda (bool = True): use cuda
+    Returns:
+        (FasterRCNNFood) model
+    """
+    device = torch.device("cuda") if (cuda and torch.cuda.is_available()) else torch.device("cpu")
+    if Path(filename).exists():
+        print("=> loading checkpoint '{}'".format(filename))
+        checkpoint = torch.load(filename, map_location=device)
+        # Load params
+        model_name = checkpoint['model_name']
+        # Build model key/architecture
+        model = PlantModel(model_name, pretrained=True, num_classes=4)
+        # Update model and optimizer
+        model.load_state_dict(checkpoint['state_dict'])
+        model = model.to(device)
+        optimizer = checkpoint['optimizer']
+        epoch = checkpoint['epoch']
+
+        print("=> loaded checkpoint '{}'".format(filename))
+        return model
+    else:
+        print("=> no checkpoint found at '{}'".format(filename))
+
+
 def is_dist_avail_and_initialized():
     if not dist.is_available():
         return False

@@ -62,7 +62,7 @@ def train_one_epoch(model, optimizer: torch.optim, data_loader: DataLoader, crit
         else:
             outputs = model(images)
             loss = criterion(outputs, labels)
-        running_loss += loss.item() * images.size(0)
+        running_loss += loss.item()
 
         # Process backward
         optimizer.zero_grad()
