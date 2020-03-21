@@ -2,6 +2,7 @@ import argparse
 from datetime import datetime
 from pathlib import Path
 
+import pandas as pd
 import torch
 import torch.distributed as dist
 
@@ -123,3 +124,16 @@ def collate_fn(batch):
 
 def check_dir(dir: str):
     Path(dir).mkdir(parents=True, exist_ok=True)
+
+
+def ensemble_res(path: iter, save=True):
+    path = list(map(Path, path))
+    df_sum = None
+    for p in path:
+        if df_sum is None:
+            df_sum = pd.read_csv(p.as_posix(), index_col=0)
+        else:
+            df_sum = df_sum.add(pd.read_csv(p.as_posix(), index_col=0))
+    df_sum = df_sum.div(len(path))
+    df_sum.to_csv("ensemble.csv")
+    return df_sum
