@@ -4,12 +4,10 @@
 # ----------------------------------------
 
 from pathlib import Path
-from typing import Union
 
-import cv2
-import numpy as np
 import pandas as pd
 import torch
+from PIL import Image
 from torch.utils.data.dataset import Dataset
 
 classes = ("healthy", "multiple_diseases", "rust", "scab")
@@ -36,12 +34,17 @@ class PlantPathologyDataset(Dataset):
         img_path = Path(self.img_root) / Path(obj["image_id"]).with_suffix(".jpg")
 
         # Get image and transforms it if necessary for augmentation
-        img = cv2.imread(img_path.as_posix())
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        # img = cv2.imread(img_path.as_posix())
+        # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        # if self.transforms:
+        #     data = {"image": img}
+        #     res = self.transforms(**data)
+        #     img = res["image"]
+
+        img = Image.open(img_path.as_posix())
+
         if self.transforms:
-            data = {"image": img}
-            res = self.transforms(**data)
-            img = res["image"]
+            img = self.transforms(img)
 
         # Convert each numpy array into tensor
         labels = torch.tensor(obj.values[1:].tolist(), dtype=torch.float32)

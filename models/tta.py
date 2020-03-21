@@ -68,7 +68,7 @@ def fivecrop_image2label(model: nn.Module, image: Tensor, crop_size: Tuple) -> T
     center_crop_y = (image_height - crop_height) // 2
     center_crop_x = (image_width - crop_width) // 2
 
-    crop_cc = image[..., center_crop_y : center_crop_y + crop_height, center_crop_x : center_crop_x + crop_width]
+    crop_cc = image[..., center_crop_y: center_crop_y + crop_height, center_crop_x: center_crop_x + crop_width]
     assert crop_cc.size(2) == crop_height
     assert crop_cc.size(3) == crop_width
 
@@ -111,21 +111,21 @@ def tencrop_image2label(model: nn.Module, image: Tensor, crop_size: Tuple) -> Te
     center_crop_y = (image_height - crop_height) // 2
     center_crop_x = (image_width - crop_width) // 2
 
-    crop_cc = image[..., center_crop_y : center_crop_y + crop_height, center_crop_x : center_crop_x + crop_width]
+    crop_cc = image[..., center_crop_y: center_crop_y + crop_height, center_crop_x: center_crop_x + crop_width]
     assert crop_cc.size(2) == crop_height
     assert crop_cc.size(3) == crop_width
 
     output = (
-        model(crop_tl)
-        + model(F.torch_fliplr(crop_tl))
-        + model(crop_tr)
-        + model(F.torch_fliplr(crop_tr))
-        + model(crop_bl)
-        + model(F.torch_fliplr(crop_bl))
-        + model(crop_br)
-        + model(F.torch_fliplr(crop_br))
-        + model(crop_cc)
-        + model(F.torch_fliplr(crop_cc))
+            model(crop_tl)
+            + model(F.torch_fliplr(crop_tl))
+            + model(crop_tr)
+            + model(F.torch_fliplr(crop_tr))
+            + model(crop_bl)
+            + model(F.torch_fliplr(crop_bl))
+            + model(crop_br)
+            + model(F.torch_fliplr(crop_br))
+            + model(crop_cc)
+            + model(F.torch_fliplr(crop_cc))
     )
 
     one_over_10 = float(1.0 / 10.0)
@@ -181,7 +181,7 @@ def d4_image2mask(model: nn.Module, image: Tensor) -> Tensor:
     output = model(image)
 
     for aug, deaug in zip(
-        [F.torch_rot90, F.torch_rot180, F.torch_rot270], [F.torch_rot270, F.torch_rot180, F.torch_rot90]
+            [F.torch_rot90, F.torch_rot180, F.torch_rot270], [F.torch_rot270, F.torch_rot180, F.torch_rot90]
     ):
         x = deaug(model(aug(image)))
         output += x
@@ -189,8 +189,8 @@ def d4_image2mask(model: nn.Module, image: Tensor) -> Tensor:
     image = F.torch_transpose(image)
 
     for aug, deaug in zip(
-        [F.torch_none, F.torch_rot90, F.torch_rot180, F.torch_rot270],
-        [F.torch_none, F.torch_rot270, F.torch_rot180, F.torch_rot90],
+            [F.torch_none, F.torch_rot90, F.torch_rot180, F.torch_rot270],
+            [F.torch_none, F.torch_rot270, F.torch_rot180, F.torch_rot90],
     ):
         x = deaug(model(aug(image)))
         output += F.torch_transpose(x)

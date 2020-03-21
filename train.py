@@ -2,12 +2,11 @@ import argparse
 from pathlib import Path
 from typing import Union
 
-import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from datasets import PlantPathologyDataset, DatasetTransforms
+from datasets import PlantPathologyDataset, DatasetTransformsAutoAug
 from models import PlantModel
 from models.engine import train_one_epoch, evaluate
 from optimizer import RAdam
@@ -51,9 +50,15 @@ def parse_args():
                         default=-1)
     parser.add_argument("--checkpoints_dir", dest="checkpoints_dir",
                         help="save checkpoints directory", type=str)
+    parser.add_argument("--img_size", dest="img_size",
+                        help="resize img to the given int", type=int,
+                        nargs=2, default=-1)
     parser.add_argument("--batch_size", dest="batch_size",
                         help="batch size", type=int,
                         default=8)
+    parser.add_argument("--cutout", dest="cutout",
+                        help="Use random erasing", type=str2bool, nargs="?",
+                        default=True)
     args = parser.parse_args()
     return args
 
@@ -116,10 +121,13 @@ def train(model, optimizer, criterion, lr_scheduler, data_loader: DataLoader, da
 
 if __name__ == '__main__':
     args = parse_args()
+
+    train_transforms = DatasetTransformsAutoAug(train=True, img_size=args.img_size, cutout=args.cutout)
+    test_transforms = DatasetTransformsAutoAug(train=False, img_size=args.img_size)
     dataset = PlantPathologyDataset(annot_fp=args.annot_train, img_root=args.img_root,
-                                    transforms=DatasetTransforms(train=True))
+                                    transforms=train_transforms)
     dataset_test = PlantPathologyDataset(annot_fp=args.annot_train, img_root=args.img_root,
-                                         transforms=DatasetTransforms(train=False))
+                                         transforms=test_transforms)
 
     model = PlantModel(
         backbone_name=args.backbone,
@@ -130,7 +138,7 @@ if __name__ == '__main__':
     # split the dataset in train and test set
     indices = torch.randperm(len(dataset)).tolist()
     size = int(len(indices) * 0.15)
-    dataset = torch.utils.data.Subset(dataset, indices[:-size])
+    # dataset = torch.utils.data.Subset(dataset, indices[:-size])
     dataset_test = torch.utils.data.Subset(dataset_test, indices[-size:])
 
     # define training and validation data loaders
@@ -153,14 +161,15 @@ if __name__ == '__main__':
         gamma=0.5
     )
 
-    df_annots = dataset.dataset.annots
-    count = df_annots[["healthy", "multiple_diseases", "rust", "scab"]].sum().values
-    count = torch.from_numpy(count.astype(np.float32))
-    weight_classes = torch.tensor([1]) - (count / len(dataset))
-    weight_classes = weight_classes.to(get_device(args.use_cuda))
-    print(weight_classes)
+    # df_annots = dataset.dataset.annots
+    # count = df_annots[["healthy", "multiple_diseases", "rust", "scab"]].sum().values
+    # count = torch.from_numpy(count.astype(np.float32))
+    # weight_classes = torch.tensor([1]) - (count / len(dataset))
+    # weight_classes = weight_classes.to(get_device(args.use_cuda))
+    # print(weight_classes)
 
-    criterion = torch.nn.BCEWithLogitsLoss(weight=weight_classes)
+    # criterion = FocalLoss(alpha=1.0, reduction="mean")
+    criterion = torch.nn.BCEWithLogitsLoss()
 
     print("Start training")
     train(model, optimizer, criterion, lr_scheduler, data_loader, data_loader_test, num_epochs=args.epochs,
