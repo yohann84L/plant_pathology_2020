@@ -4,13 +4,15 @@
 # ----------------------------------------
 
 import albumentations as A
+import torchvision
 from albumentations.pytorch import ToTensorV2 as ToTensor
 from cv2 import BORDER_REFLECT
 from torchvision.transforms import (
     Resize,
     RandomHorizontalFlip,
     RandomErasing,
-    Normalize
+    Normalize,
+    Compose,
 )
 
 from .autoaugment import ImageNetPolicy
@@ -32,26 +34,25 @@ class DatasetTransformsAutoAug(object):
         # Add normalization
         self.add_normalization()
 
+    def __call__(self, x):
+        return Compose(self.transforms)(x)
+
     def add_train_transforms(self, cutout):
-        if cutout:
-            self.transforms += [
-                Resize(self.img_size),
-                RandomErasing(p=0.4),
-            ]
-        else:
-            self.transforms += [
-                Resize(self.img_size)
-            ]
         self.transforms += [
+            Resize(self.img_size),
             RandomHorizontalFlip(),
             ImageNetPolicy(),
-            ToTensor()
+            torchvision.transforms.ToTensor()
         ]
+        if cutout:
+            self.transforms += [
+                RandomErasing(p=0.4)
+            ]
 
     def add_test_transforms(self):
         self.transforms += [
             Resize(self.img_size),
-            ToTensor
+            torchvision.transforms.ToTensor()
         ]
 
     def add_normalization(self):

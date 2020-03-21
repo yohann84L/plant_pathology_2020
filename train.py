@@ -145,6 +145,9 @@ if __name__ == '__main__':
     data_loader = torch.utils.data.DataLoader(
         dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
 
+    for batch in data_loader:
+        print(batch)
+
     data_loader_test = torch.utils.data.DataLoader(
         dataset_test, batch_size=1, shuffle=False, num_workers=4)
 
