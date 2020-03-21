@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 import models.tta as tta
-from datasets import PlantPathologyDataset, DatasetTransforms
+from datasets import PlantPathologyDataset, DatasetTransformsAutoAug
 from utils.utils import str2bool, get_device, load_for_inference
 
 
@@ -39,13 +39,16 @@ def parse_args():
 
 
 @torch.no_grad()
-def predict_submission(model, annot_test_fp: str, sample_sub_fp: str, img_root: str, use_tta: str, submission_name: str = None):
+def predict_submission(model, annot_test_fp: str, sample_sub_fp: str, img_root: str, use_tta: str,
+                       submission_name: str = None):
     if submission_name is None:
         submission_name = "sub.csv"
 
+    test_transforms = DatasetTransformsAutoAug(train=False, img_size=args.img_size)
+
     submission_df = pd.read_csv(sample_sub_fp)
     dataset_test = PlantPathologyDataset(annot_fp=annot_test_fp, img_root=img_root,
-                                         transforms=DatasetTransforms(train=False, img_size=args.img_size))
+                                         transforms=test_transforms)
 
     data_loader_test = torch.utils.data.DataLoader(
         dataset_test, batch_size=1, shuffle=False, num_workers=4)

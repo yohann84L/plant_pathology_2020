@@ -1,7 +1,9 @@
 import torch
 import torchvision
 from efficientnet_pytorch import EfficientNet
+
 from models.efficientnet import EfficientNet as CustomEfficientNet
+
 
 class PlantModel(torch.nn.Module):
     def __init__(self, backbone_name: str, pretrained: bool = True, finetune: bool = True, num_classes: int = 4):
@@ -23,7 +25,7 @@ class PlantModel(torch.nn.Module):
             "efficientnetb5",
         ]
 
-        efficientnetns = ["efficientnetnsb" + str(i) for i in range(1,8)]
+        efficientnetns = ["efficientnetnsb" + str(i) for i in range(1, 8)]
         base_model_accepted += efficientnetns
 
         # Mobilenet v2
@@ -62,28 +64,28 @@ class PlantModel(torch.nn.Module):
             num_ftrs = backbone.fc.in_features
             backbone.fc = torch.nn.Linear(num_ftrs, num_classes)
         # EfficientNet b2
-        elif base_model_name =="efficientnetb2":
+        elif base_model_name == "efficientnetb2":
             backbone = EfficientNet.from_pretrained("efficientnet-b2")
             if finetune:
                 self.set_grad_for_finetunning(backbone, 2)
             num_ftrs = backbone._fc.in_features
             backbone._fc = torch.nn.Linear(num_ftrs, num_classes)
         # EfficientNet b4
-        elif base_model_name =="efficientnetb4":
+        elif base_model_name == "efficientnetb4":
             backbone = EfficientNet.from_pretrained("efficientnet-b4")
             if finetune:
                 self.set_grad_for_finetunning(backbone, 4)
             num_ftrs = backbone._fc.in_features
             backbone._fc = torch.nn.Linear(num_ftrs, num_classes)
         # EfficientNet b5
-        elif base_model_name =="efficientnetb5":
+        elif base_model_name == "efficientnetb5":
             backbone = EfficientNet.from_pretrained("efficientnet-b5")
             if finetune:
                 self.set_grad_for_finetunning(backbone, 3)
             num_ftrs = backbone._fc.in_features
             backbone._fc = torch.nn.Linear(num_ftrs, num_classes)
         # EfficientNet b5
-        elif base_model_name =="efficientnetb7":
+        elif base_model_name == "efficientnetb7":
             backbone = EfficientNet.from_pretrained("efficientnet-b7")
             if finetune:
                 self.set_grad_for_finetunning(backbone, 3)
@@ -92,7 +94,7 @@ class PlantModel(torch.nn.Module):
         # EfficientNet Noisy Student
         elif base_model_name[:-1] == "efficientnetnsb":
             n = base_model_name[-1]
-            backbone = CustomEfficientNet.from_custom_pretrained("efficientnet-ns-b"+str(n), dir="checkpoints/")
+            backbone = CustomEfficientNet.from_custom_pretrained("efficientnet-ns-b" + str(n), dir="checkpoints/")
             if finetune:
                 self.set_grad_for_finetunning(backbone, 3)
             num_ftrs = backbone._fc.in_features

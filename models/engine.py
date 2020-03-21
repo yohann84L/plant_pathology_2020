@@ -3,19 +3,14 @@
 # Description: Faster RCNN implementation
 # ----------------------------------------
 
-from statistics import mean
-
-import numpy as np
 import torch
-from sklearn.metrics import roc_curve, auc
 from torch.utils.data.dataloader import DataLoader
-from torch.utils.tensorboard import SummaryWriter
 
-from utils.metric_logger import MetricLogger, SmoothedValue
-from models.metrics import ComputeMetrics
-
-from models.mixup import MixupData
 from losses.mixup import MixupCriterion
+from models.metrics import ComputeMetrics
+from models.mixup import MixupData
+from utils.metric_logger import MetricLogger, SmoothedValue
+
 
 def train_one_epoch(model, optimizer: torch.optim, data_loader: DataLoader, criterion: torch.nn.modules.loss,
                     device: torch.device, epoch: int, print_freq: int):

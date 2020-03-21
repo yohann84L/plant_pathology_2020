@@ -6,9 +6,64 @@
 import albumentations as A
 from albumentations.pytorch import ToTensorV2 as ToTensor
 from cv2 import BORDER_REFLECT
+from torchvision.transforms import (
+    Resize,
+    RandomHorizontalFlip,
+    RandomErasing,
+    Normalize
+)
+
+from .autoaugment import ImageNetPolicy
 
 
-class DatasetTransforms:
+class DatasetTransformsAutoAug(object):
+    def __init__(self, train=True, img_size=None, cutout=False):
+        self.transforms = []
+        if img_size is None or img_size == -1:
+            img_size = (224, 224)
+        self.img_size = img_size
+        print(self.img_size)
+
+        # Add base transform
+        if train:
+            self.add_train_transforms(cutout)
+        else:
+            self.add_test_transforms()
+        # Add normalization
+        self.add_normalization()
+
+    def add_train_transforms(self, cutout):
+        if cutout:
+            self.transforms += [
+                Resize(self.img_size),
+                RandomErasing(p=0.4),
+            ]
+        else:
+            self.transforms += [
+                Resize(self.img_size)
+            ]
+        self.transforms += [
+            RandomHorizontalFlip(),
+            ImageNetPolicy(),
+            ToTensor()
+        ]
+
+    def add_test_transforms(self):
+        self.transforms += [
+            Resize(self.img_size),
+            ToTensor
+        ]
+
+    def add_normalization(self):
+        self.transforms += [
+            Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225]
+            )
+        ]
+
+
+class DatasetTransformsAlbumentation:
     def __init__(self, train=True, img_size=None):
         self.train = train
         self.transforms = []
