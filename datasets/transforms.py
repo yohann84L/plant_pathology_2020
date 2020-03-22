@@ -15,6 +15,7 @@ from torchvision.transforms import (
     Compose,
 )
 
+import torch
 from .autoaugment import ImageNetPolicy
 
 
@@ -73,7 +74,7 @@ class UnNormalize(object):
         self.mean = mean
         self.std = std
 
-    def __call__(self, tensor):
+    def __call__(self, tensor: torch.Tensor) -> torch.Tensor:
         """
         Args:
             tensor (Tensor): Tensor image of size (C, H, W) to be normalized.
