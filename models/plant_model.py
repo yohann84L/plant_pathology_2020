@@ -108,7 +108,7 @@ class PlantModel(torch.nn.Module):
             num_ftrs = backbone.last_linear.in_features
             backbone.last_linear = torch.nn.Linear(num_ftrs, num_classes)
         # SE ResNeXt101
-        elif base_model_name[:-1] == "seresnext50":
+        elif base_model_name[:-1] == "seresnext101":
             backbone = pretrainedmodels.se_resnext101_32x4d()
             if finetune:
                 self.set_grad_for_finetunning(backbone, 3)
