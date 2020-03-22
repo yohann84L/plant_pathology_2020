@@ -24,6 +24,8 @@ class PlantModel(torch.nn.Module):
             "resnext50"
             "efficientnetb2",
             "efficientnetb5",
+            "seresnext50",
+            "seresnext101",
         ]
 
         efficientnetns = ["efficientnetnsb" + str(i) for i in range(1, 8)]
