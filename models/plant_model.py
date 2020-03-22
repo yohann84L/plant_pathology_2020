@@ -3,6 +3,7 @@ import torchvision
 from efficientnet_pytorch import EfficientNet
 
 from models.efficientnet import EfficientNet as CustomEfficientNet
+import pretrainedmodels
 
 
 class PlantModel(torch.nn.Module):
@@ -99,6 +100,20 @@ class PlantModel(torch.nn.Module):
                 self.set_grad_for_finetunning(backbone, 3)
             num_ftrs = backbone._fc.in_features
             backbone._fc = torch.nn.Linear(num_ftrs, num_classes)
+        # SE ResNeXt50
+        elif base_model_name[:-1] == "seresnext50":
+            backbone = pretrainedmodels.se_resnext50_32x4d()
+            if finetune:
+                self.set_grad_for_finetunning(backbone, 3)
+            num_ftrs = backbone.last_linear.in_features
+            backbone.last_linear = torch.nn.Linear(num_ftrs, num_classes)
+        # SE ResNeXt101
+        elif base_model_name[:-1] == "seresnext50":
+            backbone = pretrainedmodels.se_resnext101_32x4d()
+            if finetune:
+                self.set_grad_for_finetunning(backbone, 3)
+            num_ftrs = backbone.last_linear.in_features
+            backbone.last_linear = torch.nn.Linear(num_ftrs, num_classes)
         else:
             print("Backbone model should be one of the following list: ")
             for name in base_model_accepted:
