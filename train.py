@@ -59,6 +59,9 @@ def parse_args():
     parser.add_argument("--cutout", dest="cutout",
                         help="Use random erasing", type=str2bool, nargs="?",
                         default=True)
+    parser.add_argument("--use_split", dest="use_split",
+                        help="Use train test", type=str2bool, nargs="?",
+                        default=True)
     args = parser.parse_args()
     return args
 
@@ -113,43 +116,53 @@ def train(model, optimizer, criterion, lr_scheduler, data_loader: DataLoader, da
         if epoch in epoch_save_ckpt:
             save_checkpoint(model, optimizer, dir.as_posix(), epoch)
     writer.close()
-    # writer_train.close()
-    # writer_test.close()
 
     print("That's it!")
 
 
+def build_loaders(args, test_size: float = 0.2):
+    if args.use_split:
+        train_transforms = DatasetTransformsAutoAug(train=True, img_size=args.img_size, cutout=args.cutout)
+        dataset = PlantPathologyDataset(annot_fp=args.annot_train, img_root=args.img_root,
+                                        transforms=train_transforms)
+
+        # define training and validation data loaders
+        data_loader = torch.utils.data.DataLoader(
+            dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
+
+        return data_loader, data_loader
+    else:
+        train_transforms = DatasetTransformsAutoAug(train=True, img_size=args.img_size, cutout=args.cutout)
+        test_transforms = DatasetTransformsAutoAug(train=False, img_size=args.img_size)
+        dataset = PlantPathologyDataset(annot_fp=args.annot_train, img_root=args.img_root,
+                                        transforms=train_transforms)
+        dataset_test = PlantPathologyDataset(annot_fp=args.annot_train, img_root=args.img_root,
+                                             transforms=test_transforms)
+
+        # split the dataset in train and test set
+        indices = torch.randperm(len(dataset)).tolist()
+        size = int(len(indices) * test_size)
+        dataset = torch.utils.data.Subset(dataset, indices[:-size])
+        dataset_test = torch.utils.data.Subset(dataset_test, indices[-size:])
+
+        # define training and validation data loaders
+        data_loader = torch.utils.data.DataLoader(
+            dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
+
+        data_loader_test = torch.utils.data.DataLoader(
+            dataset_test, batch_size=1, shuffle=False, num_workers=4)
+
+        return data_loader, data_loader_test
+
+
 if __name__ == '__main__':
     args = parse_args()
-
-    train_transforms = DatasetTransformsAutoAug(train=True, img_size=args.img_size, cutout=args.cutout)
-    test_transforms = DatasetTransformsAutoAug(train=False, img_size=args.img_size)
-    dataset = PlantPathologyDataset(annot_fp=args.annot_train, img_root=args.img_root,
-                                    transforms=train_transforms)
-    dataset_test = PlantPathologyDataset(annot_fp=args.annot_train, img_root=args.img_root,
-                                         transforms=test_transforms)
 
     model = PlantModel(
         backbone_name=args.backbone,
         pretrained=args.pretrained,
         num_classes=args.num_classes
     )
-
-    # split the dataset in train and test set
-    indices = torch.randperm(len(dataset)).tolist()
-    size = int(len(indices) * 0.15)
-    # dataset = torch.utils.data.Subset(dataset, indices[:-size])
-    dataset_test = torch.utils.data.Subset(dataset_test, indices[-size:])
-
-    # define training and validation data loaders
-    data_loader = torch.utils.data.DataLoader(
-        dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
-
-    for batch in data_loader:
-        print(batch)
-
-    data_loader_test = torch.utils.data.DataLoader(
-        dataset_test, batch_size=1, shuffle=False, num_workers=4)
 
     params = [p for p in model.parameters() if p.requires_grad]
     optimizer = RAdam(
@@ -164,12 +177,7 @@ if __name__ == '__main__':
         gamma=0.5
     )
 
-    # df_annots = dataset.dataset.annots
-    # count = df_annots[["healthy", "multiple_diseases", "rust", "scab"]].sum().values
-    # count = torch.from_numpy(count.astype(np.float32))
-    # weight_classes = torch.tensor([1]) - (count / len(dataset))
-    # weight_classes = weight_classes.to(get_device(args.use_cuda))
-    # print(weight_classes)
+    data_loader, data_loader_test = build_loaders(args)
 
     # criterion = FocalLoss(alpha=1.0, reduction="mean")
     criterion = torch.nn.BCEWithLogitsLoss()
