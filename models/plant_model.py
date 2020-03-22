@@ -21,7 +21,7 @@ class PlantModel(torch.nn.Module):
             "vgg16",
             "resnet18",
             "resnet50",
-            "resnext50"
+            "resnext50",
             "efficientnetb2",
             "efficientnetb5",
             "seresnext50",
