@@ -121,7 +121,7 @@ def train(model, optimizer, criterion, lr_scheduler, data_loader: DataLoader, da
 
 
 def build_loaders(args, test_size: float = 0.2):
-    if args.use_split:
+    if not args.use_split:
         train_transforms = DatasetTransformsAutoAug(train=True, img_size=args.img_size, cutout=args.cutout)
         dataset = PlantPathologyDataset(annot_fp=args.annot_train, img_root=args.img_root,
                                         transforms=train_transforms)
