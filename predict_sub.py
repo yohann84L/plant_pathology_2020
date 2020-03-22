@@ -3,7 +3,7 @@ import argparse
 import pandas as pd
 import torch
 from torch.utils.data import DataLoader
-from tqdm import tqdm_notebook as tqdm
+from tqdm.auto import tqdm
 
 import models.tta as tta
 from datasets import PlantPathologyDataset, DatasetTransformsAutoAug
