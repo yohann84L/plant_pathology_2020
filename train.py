@@ -9,9 +9,10 @@ from torch.utils.tensorboard import SummaryWriter
 from datasets import PlantPathologyDataset, DatasetTransformsAutoAug
 from models import PlantModel
 from models.engine import train_one_epoch, evaluate
-from optimizer import RAdam
+from optimizer import RAdam, RangerLars
 from utils.metric_logger import *
 from utils.utils import str2bool, get_device, save_checkpoint
+from datasets import CutMixDataset
 
 
 def parse_args():
@@ -66,7 +67,7 @@ def parse_args():
     return args
 
 
-def train(model, optimizer, criterion, lr_scheduler, data_loader: DataLoader, data_loader_test: DataLoader,
+def train(model: PlantModel, optimizer, criterion, lr_scheduler, data_loader: DataLoader, data_loader_test: DataLoader,
           num_epochs: int = 10, use_cuda: bool = True,
           epoch_save_ckpt: Union[int, list] = None, dir: str = None):
     """
@@ -123,8 +124,13 @@ def train(model, optimizer, criterion, lr_scheduler, data_loader: DataLoader, da
 def build_loaders(args, test_size: float = 0.2):
     if not args.use_split:
         train_transforms = DatasetTransformsAutoAug(train=True, img_size=args.img_size, cutout=args.cutout)
+
+        # Dataset
         dataset = PlantPathologyDataset(annot_fp=args.annot_train, img_root=args.img_root,
                                         transforms=train_transforms)
+        # Use cutmix
+        if args.cutmix:
+            dataset = CutMixDataset(dataset, num_class=4, beta=1.0, prob=0.5, num_mix=1)
 
         # define training and validation data loaders
         data_loader = torch.utils.data.DataLoader(
@@ -134,10 +140,16 @@ def build_loaders(args, test_size: float = 0.2):
     else:
         train_transforms = DatasetTransformsAutoAug(train=True, img_size=args.img_size, cutout=args.cutout)
         test_transforms = DatasetTransformsAutoAug(train=False, img_size=args.img_size)
+
+        # Dataset
         dataset = PlantPathologyDataset(annot_fp=args.annot_train, img_root=args.img_root,
                                         transforms=train_transforms)
         dataset_test = PlantPathologyDataset(annot_fp=args.annot_train, img_root=args.img_root,
                                              transforms=test_transforms)
+
+        # Use cutmix
+        if args.cutmix:
+            dataset = CutMixDataset(dataset, num_class=4, beta=1.0, prob=0.5, num_mix=1)
 
         # split the dataset in train and test set
         indices = torch.randperm(len(dataset)).tolist()
@@ -165,15 +177,17 @@ if __name__ == '__main__':
     )
 
     params = [p for p in model.parameters() if p.requires_grad]
-    optimizer = RAdam(
-        params=params,
-        lr=1e-3,
-        weight_decay=0.0005
-    )
+    # optimizer = RAdam(
+    #     params=params,
+    #     lr=1e-3,
+    #     weight_decay=0.0005
+    # )
+
+    optimizer = RangerLars(params=params, lr=0.1)
 
     lr_scheduler = torch.optim.lr_scheduler.StepLR(
         optimizer=optimizer,
-        step_size=3,
+        step_size=4,
         gamma=0.5
     )
 
