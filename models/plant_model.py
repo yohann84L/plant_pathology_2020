@@ -4,18 +4,18 @@ from efficientnet_pytorch import EfficientNet
 
 from models.efficientnet import EfficientNet as CustomEfficientNet
 import pretrainedmodels
-
+import timm
 
 class PlantModel(torch.nn.Module):
-    def __init__(self, backbone_name: str, pretrained: bool = True, finetune: bool = True, num_classes: int = 4):
+    def __init__(self, backbone_name: str, pretrained: bool = True, finetune: bool = True, num_classes: int = 4, layer_freezed: int = 3):
         super().__init__()
         self.model_name = backbone_name
-        self.backbone = self.build_backbone(backbone_name, pretrained, finetune, num_classes)
+        self.backbone = self.build_backbone(backbone_name, pretrained, finetune, layer_freezed, num_classes)
 
     def forward(self, x):
         return self.backbone(x)
 
-    def build_backbone(self, base_model_name: str, pretrained: bool, finetune: bool, num_classes: int):
+    def build_backbone(self, base_model_name: str, pretrained: bool, finetune: bool, layer_freezed = 3, num_classes: int = 4):
         base_model_accepted = [
             "mobilenetv2",
             "vgg16",
@@ -76,11 +76,11 @@ class PlantModel(torch.nn.Module):
         # EfficientNet Noisy Student
         elif base_model_name[:-1] == "efficientnetnsb":
             n = base_model_name[-1]
-            backbone = CustomEfficientNet.from_custom_pretrained("efficientnet-ns-b" + str(n), dir="checkpoints/")
+            backbone = timm.create_model(f"tf_efficientnet_b{n}_ns", num_classes=4, pretrained=True)
             if finetune:
-                self.set_grad_for_finetunning(backbone, 3)
-            num_ftrs = backbone._fc.in_features
-            backbone._fc = torch.nn.Linear(num_ftrs, num_classes)
+                self.set_grad_for_finetunning(backbone, layer_freezed)
+            num_ftrs = backbone.classifier.in_features
+            backbone.classifier = torch.nn.Linear(num_ftrs, num_classes)
         # SE ResNeXt50
         elif base_model_name == "seresnext50":
             backbone = pretrainedmodels.se_resnext50_32x4d()

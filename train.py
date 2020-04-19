@@ -6,13 +6,14 @@ import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
+from datasets import CutMixDataset
 from datasets import PlantPathologyDataset, DatasetTransformsAutoAug
 from models import PlantModel
 from models.engine import train_one_epoch, evaluate
-from optimizer import RAdam, RangerLars
+from optimizer import Ranger
+from utils.config import cfg
 from utils.metric_logger import *
 from utils.utils import str2bool, get_device, save_checkpoint
-from datasets import CutMixDataset
 
 
 def parse_args():
@@ -60,9 +61,15 @@ def parse_args():
     parser.add_argument("--cutout", dest="cutout",
                         help="Use random erasing", type=str2bool, nargs="?",
                         default=True)
+    parser.add_argument("--cutmix", dest="cutmix",
+                        help="Use cutmix", type=str2bool, nargs="?",
+                        default=False)
     parser.add_argument("--use_split", dest="use_split",
                         help="Use train test", type=str2bool, nargs="?",
                         default=True)
+    parser.add_argument("--layer_freezed", dest="layer_freezed",
+                        help="Number of layer to unfreeze", type=int,
+                        default=3)
     args = parser.parse_args()
     return args
 
@@ -173,27 +180,33 @@ if __name__ == '__main__':
     model = PlantModel(
         backbone_name=args.backbone,
         pretrained=args.pretrained,
-        num_classes=args.num_classes
+        num_classes=args.num_classes,
+        layer_freezed=args.layer_freezed
     )
 
-    params = [p for p in model.parameters() if p.requires_grad]
-    # optimizer = RAdam(
-    #     params=params,
-    #     lr=1e-3,
-    #     weight_decay=0.0005
-    # )
+    # Let's have different LRs for weight and biases for instance
+    bias_params, weight_params = [], []
+    for n, p in model.named_parameters():
+        if n.endswith('.bias'):
+            bias_params.append(p)
+        else:
+            weight_params.append(p)
 
-    optimizer = RangerLars(params=params, lr=0.1)
+    # Optimizer
+    lr = cfg.LEARNING_RATE
+    optimizer = Ranger([dict(params=weight_params, lr=lr), dict(params=bias_params, lr=lr / 2)])
 
+    # LR Scheduler
     lr_scheduler = torch.optim.lr_scheduler.StepLR(
         optimizer=optimizer,
-        step_size=4,
-        gamma=0.5
+        step_size=cfg.LR_SCHED_STEP_SIZE,
+        gamma=cfg.LR_SCHED_GAMMA
     )
 
+    # Build data loaders
     data_loader, data_loader_test = build_loaders(args)
 
-    # criterion = FocalLoss(alpha=1.0, reduction="mean")
+    # Loss
     criterion = torch.nn.BCEWithLogitsLoss()
 
     print("Start training")
