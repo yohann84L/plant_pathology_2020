@@ -70,6 +70,9 @@ def parse_args():
     parser.add_argument("--layer_freezed", dest="layer_freezed",
                         help="Number of layer to unfreeze", type=int,
                         default=3)
+    parser.add_argument("--weighted_loss", dest="weighted_loss",
+                        help="compute weight and use in loss", type=str2bool, nargs="?",
+                        default=False)
     args = parser.parse_args()
     return args
 
@@ -206,10 +209,17 @@ if __name__ == '__main__':
     # Build data loaders
     data_loader, data_loader_test = build_loaders(args)
 
+
     # Loss
-    criterion = torch.nn.BCEWithLogitsLoss()
+    weights = None
+    if args.weighted_loss:
+        weights = torch.zeros_like(data_loader.dataset[0][1])
+        for _, label in data_loader.dataset:
+            weights += label
+        weights = 1.0 / (weights / torch.min(weights))
+    criterion = torch.nn.BCEWithLogitsLoss(weight=weights)
 
     print("Start training")
-    train(model, optimizer, criterion, lr_scheduler, data_loader, data_loader_test, num_epochs=args.epochs,
-          use_cuda=args.use_cuda,
-          epoch_save_ckpt=args.checkpoints, dir=args.checkpoints_dir)
+    # train(model, optimizer, criterion, lr_scheduler, data_loader, data_loader_test, num_epochs=args.epochs,
+    #       use_cuda=args.use_cuda,
+    #       epoch_save_ckpt=args.checkpoints, dir=args.checkpoints_dir)
