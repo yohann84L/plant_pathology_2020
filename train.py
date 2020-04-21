@@ -154,8 +154,6 @@ def build_loaders(args, test_size: float = 0.2):
         # Dataset
         dataset = PlantPathologyDataset(annot_fp=args.annot_train, img_root=args.img_root,
                                         transforms=train_transforms)
-        dataset_test = PlantPathologyDataset(annot_fp=args.annot_train, img_root=args.img_root,
-                                             transforms=test_transforms)
 
         # Use cutmix
         if args.cutmix:
@@ -165,7 +163,7 @@ def build_loaders(args, test_size: float = 0.2):
         indices = torch.randperm(len(dataset)).tolist()
         size = int(len(indices) * test_size)
         dataset = torch.utils.data.Subset(dataset, indices[:-size])
-        dataset_test = torch.utils.data.Subset(dataset_test, indices[-size:])
+        dataset_test = torch.utils.data.Subset(dataset, indices[-size:])
 
         # define training and validation data loaders
         data_loader = torch.utils.data.DataLoader(
@@ -222,6 +220,6 @@ if __name__ == '__main__':
     criterion = torch.nn.BCEWithLogitsLoss(weight=weights)
 
     print("Start training")
-    train(model, optimizer, criterion, lr_scheduler, data_loader, data_loader_test, num_epochs=args.epochs,
-          use_cuda=args.use_cuda,
-          epoch_save_ckpt=args.checkpoints, dir=args.checkpoints_dir)
+    # train(model, optimizer, criterion, lr_scheduler, data_loader, data_loader_test, num_epochs=args.epochs,
+    #       use_cuda=args.use_cuda,
+    #       epoch_save_ckpt=args.checkpoints, dir=args.checkpoints_dir)
