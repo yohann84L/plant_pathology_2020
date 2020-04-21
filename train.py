@@ -215,11 +215,9 @@ if __name__ == '__main__':
         for _, label in data_loader.dataset:
             weights += label
         weights = torch.as_tensor(1.0 / (weights / torch.min(weights)), device=get_device(args.use_cuda))
-        print(weights)
-        print(weights.device)
     criterion = torch.nn.BCEWithLogitsLoss(weight=weights)
 
     print("Start training")
-    # train(model, optimizer, criterion, lr_scheduler, data_loader, data_loader_test, num_epochs=args.epochs,
-    #       use_cuda=args.use_cuda,
-    #       epoch_save_ckpt=args.checkpoints, dir=args.checkpoints_dir)
+    train(model, optimizer, criterion, lr_scheduler, data_loader, data_loader_test, num_epochs=args.epochs,
+          use_cuda=args.use_cuda,
+          epoch_save_ckpt=args.checkpoints, dir=args.checkpoints_dir)
