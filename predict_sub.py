@@ -35,7 +35,7 @@ def parse_args():
                         help="resize img to the given int", type=int,
                         nargs=2, default=-1)
     parser.add_argument("--batch_size", dest="batch_size", type=int,
-                        nargs=1, default=4, help="batch size inference")
+                        default=4, help="batch size inference")
     args = parser.parse_args()
     return args
 
