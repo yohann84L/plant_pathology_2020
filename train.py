@@ -216,8 +216,9 @@ if __name__ == '__main__':
         weights = torch.zeros_like(data_loader.dataset[0][1])
         for _, label in data_loader.dataset:
             weights += label
-        weights = 1.0 / (weights / torch.min(weights))
-        weights.to(get_device(args.use_cuda))
+        weights = torch.as_tensor(1.0 / (weights / torch.min(weights)), device=get_device(args.use_cuda))
+        print(weights)
+        print(weights.device)
     criterion = torch.nn.BCEWithLogitsLoss(weight=weights)
 
     print("Start training")
