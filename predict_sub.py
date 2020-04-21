@@ -34,49 +34,48 @@ def parse_args():
     parser.add_argument("--img_size", dest="img_size",
                         help="resize img to the given int", type=int,
                         nargs=2, default=-1)
+    parser.add_argument("--batch_size", dest="batch_size", type=int,
+                        nargs=1, default=4, help="batch size inference")
     args = parser.parse_args()
     return args
 
 
 @torch.no_grad()
 def predict_submission(model, annot_test_fp: str, sample_sub_fp: str, img_root: str, use_tta: str,
-                       submission_name: str = None):
+                       img_size: iter = None, batch_size: int = 4, submission_name: str = None):
     if submission_name is None:
         submission_name = "sub.csv"
 
-    test_transforms = DatasetTransformsAutoAug(train=False, img_size=args.img_size)
+    test_transforms = DatasetTransformsAutoAug(train=False, img_size=img_size)
 
     submission_df = pd.read_csv(sample_sub_fp)
     dataset_test = PlantPathologyDataset(annot_fp=annot_test_fp, img_root=img_root,
                                          transforms=test_transforms)
 
     data_loader_test = torch.utils.data.DataLoader(
-        dataset_test, batch_size=1, shuffle=False, num_workers=4)
+        dataset_test, batch_size=batch_size, shuffle=False, num_workers=4)
 
     model.eval()
     device = get_device(use_cuda=True)
+    preds = None
 
-    for i, batch in enumerate(tqdm(data_loader_test)):
-        images = batch[0]
-        images = images.to(device, dtype=torch.float)
+    bar = tqdm(total=len(data_loader_test.dataset))
+    for imgs, _ in data_loader_test:
+        imgs = imgs.to(device, dtype=torch.float)
 
-        outputs = tta.d4_image2label(model, images)
+        if use_tta:
+            outputs = tta.d4_image2label(model, imgs)
+        else:
+            outputs = model(imgs)
 
-        # print(use_tta)
-        # if use_tta is "d4_image2label":
-        #     outputs = tta.d4_image2label(model, images)
-        # elif use_tta is "fivecrop_image2label":
-        #
-        # elif use_tta is "none":
-        #     outputs = model(images)
-        # else:
-        #     tta_available()
-        #     raise NotImplementedError
+        if preds is None:
+            preds = outputs.data.cpu()
+        else:
+            preds = torch.cat((preds, outputs.data.cpu()), dim=0)
 
-        preds = torch.nn.functional.softmax(outputs)
-        preds = preds.cpu().detach().numpy()
+        bar.update(batch_size)
 
-        submission_df.iloc[i, 1:] = preds[0]
+    submission_df[['healthy', 'multiple_diseases', 'rust', 'scab']] = torch.softmax(preds, dim=1)
     submission_df.to_csv(submission_name, index=False)
 
 
@@ -98,5 +97,7 @@ if __name__ == '__main__':
         annot_test_fp=args.annot_test,
         sample_sub_fp=args.sample_sub,
         img_root=args.img_root,
-        use_tta=args.tta
+        use_tta=args.tta,
+        img_size=args.img_size,
+        batch_size=args.batch_size
     )
