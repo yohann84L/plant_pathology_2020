@@ -71,7 +71,7 @@ def train_one_epoch(model, optimizer: torch.optim, data_loader: DataLoader, crit
         metric_logger.update(loss=loss)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
 
-    epoch_metric = metric.get_auc_roc(train=True)
+    epoch_metric = metric.get_auc_roc()
     epoch_metric["loss"] = running_loss / len(data_loader.dataset)
 
     print(epoch_metric)
@@ -110,7 +110,7 @@ def evaluate(model, criterion: torch.nn.modules.loss, data_loader: DataLoader, d
         # Compute ROC AUC
         metric.update(outputs, labels)
 
-    epoch_metric = metric.get_auc_roc(train=False)
+    epoch_metric = metric.get_auc_roc()
     epoch_metric["loss"] = running_loss / len(data_loader.dataset)
 
     return epoch_metric
