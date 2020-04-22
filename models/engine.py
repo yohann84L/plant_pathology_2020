@@ -113,5 +113,4 @@ def evaluate(model, criterion: torch.nn.modules.loss, data_loader: DataLoader, d
     epoch_metric = metric.get_auc_roc(train=False)
     epoch_metric["loss"] = running_loss / len(data_loader.dataset)
 
-    print(epoch_metric)
     return epoch_metric

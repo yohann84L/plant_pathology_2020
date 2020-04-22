@@ -13,6 +13,7 @@ from models.engine import train_one_epoch, evaluate
 from optimizer import Ranger
 from utils.config import cfg
 from utils.metric_logger import *
+from models.metrics import print_result_table
 from utils.utils import str2bool, get_device, save_checkpoint
 
 
@@ -73,6 +74,9 @@ def parse_args():
     parser.add_argument("--weighted_loss", dest="weighted_loss",
                         help="compute weight and use in loss", type=str2bool, nargs="?",
                         default=False)
+    parser.add_argument("--lighting", dest="lighting",
+                        help="use lighting pca jitter", type=str2bool, nargs="?",
+                        default=False)
     args = parser.parse_args()
     return args
 
@@ -115,6 +119,10 @@ def train(model: PlantModel, optimizer, criterion, lr_scheduler, data_loader: Da
         lr_scheduler.step()
         # evaluate on the test dataset
         test_metric = evaluate(model, criterion, data_loader_test, device=device)
+
+        # print results
+        print_result_table(train_metric, test_metric)
+
         # metric_logger_test.update(**test_metric)
         for key in train_metric.keys():
             writer.add_scalars(
@@ -133,7 +141,8 @@ def train(model: PlantModel, optimizer, criterion, lr_scheduler, data_loader: Da
 
 def build_loaders(args, test_size: float = 0.2):
     if not args.use_split:
-        train_transforms = DatasetTransformsAutoAug(train=True, img_size=args.img_size, cutout=args.cutout)
+        train_transforms = DatasetTransformsAutoAug(train=True, img_size=args.img_size, cutout=args.cutout,
+                                                    lighting=args.lighting)
 
         # Dataset
         dataset = PlantPathologyDataset(annot_fp=args.annot_train, img_root=args.img_root,
@@ -148,7 +157,9 @@ def build_loaders(args, test_size: float = 0.2):
 
         return data_loader, data_loader
     else:
-        train_transforms = DatasetTransformsAutoAug(train=True, img_size=args.img_size, cutout=args.cutout)
+        train_transforms = DatasetTransformsAutoAug(train=True, img_size=args.img_size, cutout=args.cutout,
+                                                    lighting=args.lighting)
+        print(train_transforms)
         test_transforms = DatasetTransformsAutoAug(train=False, img_size=args.img_size)
 
         # Dataset

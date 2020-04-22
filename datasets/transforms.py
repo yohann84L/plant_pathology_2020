@@ -18,9 +18,17 @@ from torchvision.transforms import (
 import torch
 from .autoaugment import ImageNetPolicy
 
+_IMAGENET_PCA = {
+    'eigval': [0.2175, 0.0188, 0.0045],
+    'eigvec': [
+        [-0.5675,  0.7192,  0.4009],
+        [-0.5808, -0.0045, -0.8140],
+        [-0.5836, -0.6948,  0.4203],
+    ]
+}
 
 class DatasetTransformsAutoAug(object):
-    def __init__(self, train=True, img_size=None, cutout=False):
+    def __init__(self, train=True, img_size=None, cutout=False, lighting=False):
         self.transforms = []
         if img_size is None or img_size == -1:
             img_size = (224, 224)
@@ -29,7 +37,7 @@ class DatasetTransformsAutoAug(object):
 
         # Add base transform
         if train:
-            self.add_train_transforms(cutout)
+            self.add_train_transforms(cutout, lighting)
         else:
             self.add_test_transforms()
         # Add normalization
@@ -38,16 +46,20 @@ class DatasetTransformsAutoAug(object):
     def __call__(self, x):
         return Compose(self.transforms)(x)
 
-    def add_train_transforms(self, cutout):
+    def add_train_transforms(self, cutout, lighting):
         self.transforms += [
             Resize(self.img_size),
             RandomHorizontalFlip(),
             ImageNetPolicy(),
-            torchvision.transforms.ToTensor()
+            torchvision.transforms.ToTensor(),
         ]
         if cutout:
             self.transforms += [
                 RandomErasing(p=0.4)
+            ]
+        if lighting:
+            self.transforms += [
+                Lighting(0.1, _IMAGENET_PCA['eigval'], _IMAGENET_PCA['eigvec']),
             ]
 
     def add_test_transforms(self):
@@ -139,3 +151,23 @@ class DatasetTransformsAlbumentation:
                 mean=[0.485, 0.456, 0.406],
                 std=[0.229, 0.224, 0.225]),
         ]
+
+class Lighting(object):
+    """Lighting noise(AlexNet - style PCA - based noise)"""
+
+    def __init__(self, alphastd, eigval, eigvec):
+        self.alphastd = alphastd
+        self.eigval = torch.Tensor(eigval)
+        self.eigvec = torch.Tensor(eigvec)
+
+    def __call__(self, img):
+        if self.alphastd == 0:
+            return img
+
+        alpha = img.new().resize_(3).normal_(0, self.alphastd)
+        rgb = self.eigvec.type_as(img).clone() \
+            .mul(alpha.view(1, 3).expand(3, 3)) \
+            .mul(self.eigval.view(1, 3).expand(3, 3)) \
+            .sum(1).squeeze()
+
+        return img.add(rgb.view(3, 1, 1).expand_as(img))

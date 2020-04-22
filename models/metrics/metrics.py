@@ -3,7 +3,7 @@ from statistics import mean
 import numpy as np
 import torch
 from sklearn.metrics import roc_curve, auc
-
+from tabulate import tabulate
 
 class ComputeMetrics(object):
     def __init__(self, n_classes=4):
@@ -19,7 +19,7 @@ class ComputeMetrics(object):
             self.output = torch.cat((self.output, output))
             self.target = torch.cat((self.target, target))
 
-    def get_auc_roc(self, train: bool = True) -> dict:
+    def get_auc_roc(self) -> dict:
         roc_auc, fpr, tpr = {}, {}, {}
         output = torch.nn.functional.softmax(self.output, dim=1)
         output = output.cpu().detach().numpy()
@@ -32,3 +32,13 @@ class ComputeMetrics(object):
         mean_auc = mean(roc_auc.values())
         roc_auc["mean_auc"] = mean_auc
         return roc_auc
+
+
+def print_result_table(train_metric: dict, test_metric: dict):
+    headers = ["metric", "train", "test", "diff"]
+    data = sorted(
+        [(k, v_train, v_test, v_train/v_test)
+         for (k, v_train), (_, v_test)
+         in zip(train_metric.items(), test_metric.items())]
+    )
+    print(tabulate(data, headers=headers))

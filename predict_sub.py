@@ -8,7 +8,7 @@ from tqdm.auto import tqdm
 import models.tta as tta
 from datasets import PlantPathologyDataset, DatasetTransformsAutoAug
 from utils.utils import str2bool, get_device, load_for_inference
-
+from torch2trt import torch2trt
 
 def parse_args():
     """
@@ -36,6 +36,8 @@ def parse_args():
                         nargs=2, default=-1)
     parser.add_argument("--batch_size", dest="batch_size", type=int,
                         default=4, help="batch size inference")
+    parser.add_argument("--user_ttr", dest="use_ttr", type=str2bool,
+                        nargs="?", default=False)
     args = parser.parse_args()
     return args
 
@@ -92,6 +94,11 @@ def tta_available():
 if __name__ == '__main__':
     args = parse_args()
     model = load_for_inference(args.checkpoint)
+
+    if args.use_ttr:
+        x = torch.ones((1, 3, args.img_size[0], args.img_size[1])).to(get_device(args.use_cuda))
+        model = torch2trt(model, x)
+
     predict_submission(
         model=model,
         annot_test_fp=args.annot_test,
